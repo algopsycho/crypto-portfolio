@@ -4,48 +4,49 @@ import json
 from bs4 import BeautifulSoup
 import requests
 import urllib.request
+import sys
 
-
-
+t = sys.argv[1]
+# Initially we set these options to  display all rows from data frame using pandas
 pd.set_option('display.max_rows', 55000)
 pd.set_option('display.max_columns', 3)
 pd.set_option('display.width', 1000)
 L= []
-crypto_portfolio=[]
-crypto_names=[]
-crypto_names_lower_joined=[]
+crypto_symbols=[]
+crypto_ids=[]
 
-url = 'https://api.coincap.io/v2/assets'
+
+url = 'https://api.coincap.io/v2/assets' #
 response = requests.get(url)
 
 data = json.loads(BeautifulSoup(response.text, 'html.parser').prettify())
 
 
-#all_coins_dict is a dictionary where the key images are a list of dictionaries
+# L is a dictionary where the key images are a list of dictionaries
 L= data['data']
 
 for i in L: #each dictionary represents the information of a crypto
     if int(i['rank'])<=12: #choose the top 12 cryptos based off market cap
-        crypto_portfolio.append(i['symbol'])
-        crypto_names.append(i['id'])
+        crypto_symbols.append(i['symbol'])
+        crypto_ids.append(i['id'])
 
-print("Portfolio coins with the top 12 ranking :\n",crypto_portfolio)
-print(crypto_names)
+print("Portfolio coins with the top 12 ranking :\n",crypto_symbols)
+print('And their corresponding coincap ids :\n ', crypto_ids)
+
 all_coins_df = pd.DataFrame(data)
 
-#Loop thru all the coins in the portfolio & get their historical prices in the past 5 days.
+# Loop thru all the coins in the portfolio & get their historical prices in the past t.
 combined_df = pd.DataFrame()
 prices = []
 time= []
 newd ={}
 lst = []
-for coin in crypto_names:
+for coin in crypto_ids:
     prices_time_list=[]
     dic_t = json.loads(BeautifulSoup(
-            requests.get('https://api.coincap.io/v2/assets/' +coin+ '/history?interval=d1').content, "html.parser").prettify()) #this is where we use the lower case
-    #print(dic_t)
+            requests.get('https://api.coincap.io/v2/assets/' +coin+ '/history?interval=' + str(t)).content, "html.parser").prettify()) 
+
     for i in dic_t['data']:
-        #print(i)
         newd[i['time']]=i['priceUsd']
         prices.append(i['priceUsd'])
         time.append(i['time'])
@@ -61,14 +62,16 @@ for coin in crypto_names:
     time =[]
     prices =[]
     lst =[]
-    print('working...')
+    print( 'retreiving ' + coin + ' historical information...')
 
 
 
-#Change the time formart
+# Change the time formart
 combined_df['time'] = pd.to_datetime(combined_df['time'],unit='ms',yearfirst=True)
-#combined_df['time'] = [d.date() for d in combined_df['time']]
+
+# Display the Data Frame of the combined 
 print(combined_df)
+
 operational_df = combined_df.groupby(['time', 'coin'],as_index=False)[['price']].mean()
 operational_df = operational_df.set_index('time')
 
@@ -93,10 +96,8 @@ for a_crypto_portfolio in range(number_crypto_portfolios):
     weights = np.random.random(number_of_cryptoassets)
     weights /= np.sum(weights)
     
-    #print(weights)
     returns = np.dot(weights, period_returns)*100
     
-    #print(weights)
     volatility = np.sqrt(np.dot(weights.T, np.dot(period_covariance, weights)))*100
    
     p_sharpe_ratio.append(returns/volatility)
